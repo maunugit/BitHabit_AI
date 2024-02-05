@@ -1,0 +1,55 @@
+
+  /* InputBar.css */
+
+.inputBar {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: #f9f9f9; /* Light grey background */
+    border: 1px solid #e1e1e1; /* Subtle border */
+    border-radius: 25px; /* Rounded corners */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+    margin-bottom: 10px; /* Space below the bar */
+  }
+  
+  .inputBar input {
+    flex-grow: 1; /* Input grows to fill available space */
+    border: none; /* Remove default border */
+    outline: none; /* Remove the outline */
+    padding: 10px 20px; /* Spacing inside the input */
+    font-size: 16px; /* Larger font size */
+    border-radius: 25px; /* Rounded corners */
+    margin-right: 10px; /* Space between input and button */
+  }
+  
+  .inputBar button {
+    padding: 10px 20px; /* Spacing inside the button */
+    border: none; /* Remove default border */
+    background-color: #007bff; /* Blue background */
+    color: white; /* White text */
+    font-size: 16px; /* Matching font size with input */
+    cursor: pointer; /* Pointer cursor on hover */
+    border-radius: 25px; /* Rounded corners */
+    outline: none; /* Remove the outline */
+    transition: background-color 0.2s ease-in-out; /* Smooth transition for background color */
+  }
+  
+  .inputBar button:hover,
+  .inputBar button:focus {
+    background-color: #b24bee; /* Darker blue on hover/focus */
+  }
+  
+  /* Add some responsiveness to the input bar */
+  @media (max-width: 768px) {
+    .inputBar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  
+    .inputBar input,
+    .inputBar button {
+      width: 100%; /* Full width on small screens */
+      margin: 5px 0; /* Add some vertical space */
+    }
+  }
+  

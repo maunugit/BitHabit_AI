@@ -1,0 +1,100 @@
+/* General styling to improve the layout and aesthetics */
+.ChatApp {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* Adjusted to align content to the top */
+  align-items: center; /* Aligns horizontally */
+  height: 100vh; /* Use the full height of the viewport */
+  padding: 20px;
+  box-sizing: border-box;
+  background-color: #F0F0F0; /* Light background color for contrast */
+  font-family: 'Arial', sans-serif; /* Ensuring a clean, readable font is used */
+}
+
+.ChatHeader {
+  font-size: 2em; /* Large text */
+  color: #800080; /* Purple color */
+  text-align: center;
+  margin-bottom: 20px; /* Spacing below the header */
+}
+
+/* Enhanced styling for the messages container for better readability and aesthetics */
+.messages {
+  width: 80%; /* Ensures the messages container doesn't span the entire viewport width */
+  max-width: 600px; /* Maximum width for larger screens */
+  height: 70vh; /* Dynamic height based on viewport */
+  overflow-y: auto; /* Adds a scrollbar when necessary */
+  padding: 20px;
+  border: 2px solid #ccc; /* Slightly thicker border for definition */
+  border-radius: 10px; /* Rounded corners for a modern look */
+  background-color: white; /* White background for the messages area */
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+  display: flex;
+  flex-direction: column; /* Ensures messages are displayed in a column */
+  gap: 10px; /* Adds space between messages */
+}
+
+/* Updated style for user message bubbles */
+.Message.user {
+  align-self: flex-end;
+  background-color: #007BFF; /* A more vibrant blue for user messages */
+  color: white;
+  border-radius: 20px;
+  padding: 10px 15px; /* Slightly more padding for a better text display */
+  margin: 4px 0;
+  max-width: 70%;
+  word-wrap: break-word; /* Ensures long words don't overflow */
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
+}
+
+/* Updated style for AI message bubbles */
+.Message.ai {
+  align-self: flex-start;
+  background-color: #E5E5EA;
+  color: black;
+  border-radius: 20px;
+  padding: 10px 15px;
+  margin: 4px 0;
+  max-width: 70%;
+  word-wrap: break-word;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Adding a smooth scrolling effect */
+.messages {
+  scroll-behavior: smooth;
+}
+
+/* Style adjustments for the input area and send button, if applicable */
+.InputBar {
+  width: 80%; /* Matching the width of the messages container */
+  max-width: 600px; /* Consistency in maximum width */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px; /* Ensures a gap between messages and input area */
+}
+
+.voice-command-button {
+  cursor: pointer; /* Indicates the button is clickable */
+  margin-left: 10px; /* Space from the input field */
+  background-color: #007BFF; /* Matching the user message color */
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 16px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.voice-command-button:hover {
+  background-color: #0056b3; /* Darker shade on hover for feedback */
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .messages, .InputBar {
+    width: 95%; /* Allows more space on smaller screens */
+    max-width: none; /* Overrides the max-width on smaller devices */
+  }
+}
