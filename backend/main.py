@@ -3,6 +3,8 @@ from flask_cors import CORS
 import openai
 import logging
 import os
+import re
+import spacy
 
 
 app = Flask(__name__)
@@ -11,13 +13,44 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s')
 
+nlp = spacy.load("en_core_web_sm") # for english
+# nlp = spacy.load("fi_core_web_sm") # for finnish
+
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY is not set in the environment variables")
 
 openai_api_key = os.getenv('OPENAI_API_KEY')
 
+# Keyword/phrases patterns
+OUT_OF_SCOPE_PATTERNS = [
+    r"\bpython code\b",  
+    r"\bprogramming\b",  
+    r"\bvideo games\b",  
+    r"\bpolitics\b", 
+    r"\barts\b",  
+    r"\bmovies\b",  
+    r"\btelevision\b",  
+    r"\bstock market\b",  
+    r"\btravel advice\b",  
+    # More out of scope patterns here
+]
 
+def is_message_out_of_scope(message):
+    message_lower = message.lower()  # Convert message to lowercase to ensure case-insensitive matching
+    return any(re.search(pattern, message_lower) for pattern in OUT_OF_SCOPE_PATTERNS)
+
+def is_message_related_to_bithabit(message):
+    """
+    Here we use NLP to determine if the message is related to health and lifestyle.
+    This should be better than regex patterns
+    """
+    doc = nlp(message)
+    for token in doc:
+        if token.pos_ in ['NOUN', 'VERB']:
+            if token.lemma_ in ['exercise', 'diet', 'sleep', 'stress']:
+                return True
+    return False
 
 @app.route('/message', methods=['POST'])
 def handle_message():
@@ -29,6 +62,13 @@ def handle_message():
     try:
         logging.debug('Received user message: %s', user_message)
 
+        # If user message is "out of scope"
+        if is_message_out_of_scope(user_message) or not is_message_related_to_bithabit(user_message):
+            # Predefined response to redirect the conversation back to habits and health
+            redirect_message = "I'm here to help you with your health and habit goals. Let's focus on that instead!"
+            return jsonify({"reply": redirect_message})
+        
+        # If the message is not out of scope, proceed with your existing logic
       
         #System Message:
         system_message = "I am BitHabit, a virtual assistant created by WellPro to help you develop and maintain healthy habits. I am here to provide guidance on fitness, nutrition, and overall well-being."
@@ -41,6 +81,7 @@ def handle_message():
                 {"role": "user", "content": user_message}
             ]
         )
+     
         #Tailored responses :
         ai_responses = [
             {"role": "assistant", "content": "Hello! I am BitHabit's virtual assistant. How can I assist you today?"},
