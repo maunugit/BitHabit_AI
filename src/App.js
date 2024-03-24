@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef} from 'react';
+import React, { useState } from 'react';
+
 import { sendMessage } from './apiService'; // Importing the API service
 import Message from './Message'; 
 import InputBar from './InputBar'; 

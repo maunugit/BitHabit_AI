@@ -1,32 +1,33 @@
 /* Add this to your existing CSS file where you style your messages */
 
 .message {
-  padding: 3px 7px;
-  border-radius: 12px;
-  margin: 1px;
-  max-width: 70%;
-  word-wrap: break-word; /* Ensure long words do not break the bubble layout */
-}
-
-.message-user {
-  align-self: flex-end;
-  background-color: #b24bee; /* Blue for the user messages */
-  color: white; /* White text for better readability */
-  margin-right: 10px; /* Spacing from the right edge */
-}
-
-.message-ai {
-  align-self: flex-start;
-  background-color: #E5E5EA; /* Light grey for the AI messages */
-  color: black; /* Dark text for better readability */
-  margin-left: 10px; /* Spacing from the left edge */
-}
-
-/* If you want the messages to be aligned differently on smaller screens */
-@media (max-width: 768px) {
-  .message-user,
-  .message-ai {
-    margin-left: 10px;
-    margin-right: 10px;
+    padding: 3px 7px;
+    border-radius: 12px;
+    margin: 1px;
+    max-width: 70%;
+    word-wrap: break-word; /* Ensure long words do not break the bubble layout */
   }
-}
+  
+  .message-user {
+    align-self: flex-end;
+    background-color: #b24bee; /* Blue for the user messages */
+    color: white; /* White text for better readability */
+    margin-right: 10px; /* Spacing from the right edge */
+  }
+  
+  .message-ai {
+    align-self: flex-start;
+    background-color: #E5E5EA; /* Light grey for the AI messages */
+    color: black; /* Dark text for better readability */
+    margin-left: 10px; /* Spacing from the left edge */
+  }
+  
+  /* If you want the messages to be aligned differently on smaller screens */
+  @media (max-width: 768px) {
+    .message-user,
+    .message-ai {
+      margin-left: 10px;
+      margin-right: 10px;
+    }
+  }
+  

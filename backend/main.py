@@ -6,11 +6,14 @@ import os
 import re
 import spacy
 from langdetect import detect
+from langdetect import detect
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s')
+
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
@@ -29,14 +32,20 @@ print("The Fine-tuned model is called:" + fine_tuned_model)
 
 # Keyword/phrases patterns
 OUT_OF_SCOPE_PATTERNS_EN = [
+OUT_OF_SCOPE_PATTERNS_EN = [
     r"\bpython code\b",  
     r"\bprogramming\b",  
+    r"\bvideo games\b",     
     r"\bvideo games\b",     
     r"\bpolitics\b", 
     r"\barts\b",  
     r"\bmovies\b",  
     r"\btelevision\b",  
     r"\bstock market\b",  
+    r"\btravel advice\b",   
+    r"\bcreate a (.*\b)?program\b",
+    r"\bdevelop a (.*\b)?application\b",
+    r"\bcode in [a-zA-Z]+\b",  # matches "code in Python", "code in Java", etc.
     r"\btravel advice\b",   
     r"\bcreate a (.*\b)?program\b",
     r"\bdevelop a (.*\b)?application\b",
@@ -75,10 +84,53 @@ def is_message_out_of_scope(message, language):
             return True
     return False
 
+OUT_OF_SCOPE_PATTERNS_FI = [
+    r"\bpython ohjelmointi\b",  
+    r"\bpython koodaus\b",  
+]
 
+def detect_language(text):
+    try:
+        return detect(text)
+    except Exception as e:
+        logging.error(f"Error detecting language: {e}")
+        return None
+    
+    
+def is_message_out_of_scope(message, language):
+    """
+    Check if the message is out of scope based on predefined patterns
+    for English and Finnish languages, ensuring case-insensitive matching.
+    """
+    message_lower = message.lower()  # Normalize case for case-insensitive comparison
+
+    if language == 'en':
+        patterns = OUT_OF_SCOPE_PATTERNS_EN
+    elif language == 'fi':
+        patterns = OUT_OF_SCOPE_PATTERNS_FI
+    else:
+        return False  # If language is unsupported, default to not out of scope
+
+    for pattern in patterns:
+        if re.search(pattern, message_lower, re.IGNORECASE):
+            return True
+    return False
+
+
+def is_message_related_to_bithabit(message, language):
 def is_message_related_to_bithabit(message, language):
     """
     Here we use NLP to determine if the message is related to health and lifestyle.
+    """
+    if language == 'fi':
+        nlp = spacy.load("fi_core_news_sm")
+        bithabit_related_keywords = ['urheilu', 'ruokavalio', 'uni', 'stressi', 'liikunta', 'treeni', 'ravinto', 'tavat', 'elämäntavat', 'mieliala']
+    elif language == 'en':
+        nlp = spacy.load("en_core_web_sm")
+        bithabit_related_keywords = ['exercise', 'diet', 'sleep', 'stress', 'sports', 'training', 'nutrition', 'habits', 'healthy habits', 'mood']
+    else:
+        return False  # Unsupported language
+    
     """
     if language == 'fi':
         nlp = spacy.load("fi_core_news_sm")
@@ -93,8 +145,30 @@ def is_message_related_to_bithabit(message, language):
     for token in doc:
         if token.pos_ in ['NOUN', 'VERB']:
             if token.lemma_ in bithabit_related_keywords:
+            if token.lemma_ in bithabit_related_keywords:
                 return True
     return False
+
+def general_format_response(response_text):
+    # Format numbered lists: Add a line break before each number
+    formatted_text = re.sub(r"(\d+\.)", r"\n\n\1", response_text)
+
+    # Ensure there's no excessive newline at the start and trim any whitespace at the end
+    formatted_text = formatted_text.lstrip().rstrip()
+
+    # Optional: Identify and bold specific keywords for emphasis
+    # This example simply demonstrates how you could bold the word "Important"
+    keywords_to_bold = ["Important"]
+    for keyword in keywords_to_bold:
+        formatted_text = re.sub(f"({keyword})", r"**\1**", formatted_text, flags=re.IGNORECASE)
+
+    return formatted_text
+
+# Example usage with a generic text response
+# raw_ai_response = "Here are some tips to improve your sleep: 1. Keep a consistent sleep schedule. 2. Create a bedtime ritual to wind down. 3. Make your bedroom comfortable for sleeping. Important: Avoid screens before bed."
+
+# formatted_ai_response = general_format_response(raw_ai_response)
+# print(formatted_ai_response)
 
 def general_format_response(response_text):
     # Format numbered lists: Add a line break before each number
@@ -127,6 +201,9 @@ def handle_message():
 
     language = detect_language(user_message)
 
+ 
+    language = detect_language(user_message)
+    
     try:
         logging.debug('Received user message: %s', user_message)
         # If user message is "out of scope"
@@ -135,6 +212,11 @@ def handle_message():
         #     redirect_message = "I'm here to help you with your health and habit goals. Let's focus on that instead!"
         #     formatted_redirect_message = general_format_response(redirect_message)
         #     return jsonify({"reply": formatted_redirect_message})
+        if is_message_out_of_scope(user_message, language):
+            # Customized response to smoothly redirect the conversation 
+            redirect_message = "I'm here to help you with your health and habit goals. Let's focus on that instead!"
+            formatted_redirect_message = general_format_response(redirect_message)
+            return jsonify({"reply": formatted_redirect_message})
         
         # elif not is_message_related_to_bithabit(user_message, language):
         #     # Handle unrelated messages
@@ -143,6 +225,10 @@ def handle_message():
         #     return jsonify({"reply": formatted_redirect_message})
 
       
+        elif not is_message_related_to_bithabit(user_message, language):
+            formatted_redirect_message = general_format_response(redirect_message)
+            return jsonify({"reply": formatted_redirect_message})
+        
         #System Message:
         system_message = "I am BitHabit, a virtual assistant created by WellPro to help you develop and maintain healthy habits. I am here to provide guidance on fitness, nutrition, and overall well-being."
         
@@ -150,6 +236,10 @@ def handle_message():
         completion = client.chat.completions.create(
             
             model=fine_tuned_gpt_35_turbo,
+
+        #Chat conversation
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
             messages=[
                  {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}]
@@ -190,6 +280,9 @@ def handle_message():
             {"role": "assistant", "content": "It's essential to prioritize your health. If you have medical or psychological inquiries, please consult qualified professionals who can offer expert guidance."},
         ]
 
+        # ai_message = response.choises[0].message['content'] if response.choices else "Sorry, I didn't quite catch that."
+        raw_ai_response = response.choices[0].text if response.choices else "Sorry, I didn't quite catch that."
+        formatted_ai_response = general_format_response(raw_ai_response)
         # ai_message = chat_completion['choices'][0]['message']['content']
 
         # this is for babbage-002 based models
