@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef} from 'react';
 import { sendMessage } from './apiService'; // Importing the API service
-import Message from './Message'; // Assuming you have a Message component
-import InputBar from './InputBar'; // Assuming you have an InputBar component
-import './ChatApp.css'; // Make sure you create this CSS file and define styles
+import Message from './Message'; 
+import InputBar from './InputBar'; 
+import './ChatApp.css'; 
+
 
 function ChatApp() {
   const [messages, setMessages] = useState([]);
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [userInput, setUserInput] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState('en-US'); // default voice messages in English
-  const messagesEndRef = React.useRef(null);
+  const [selectedLanguage, setSelectedLanguage] = useState('fi-FI'); // default voice messages in Finnish
+  const messagesEndRef = useRef(null);
+
+  
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({behavior: "smooth" });
@@ -32,6 +35,7 @@ function ChatApp() {
       inputText = input;
     }
     if (!inputText.trim()) return;
+    console.log(inputText);
 
     const userMessage = {
       text: inputText,
@@ -70,6 +74,8 @@ function ChatApp() {
       console.error('Speech recognition error', event.error);
     }
   }
+ 
+
 
   return (
     <div className="ChatApp">
@@ -86,10 +92,11 @@ function ChatApp() {
         onSubmit={(event) => handleSubmit(event)}
       />
       <select onChange={handleLanguageChange} value={selectedLanguage}>
-        <option value="en-US">English</option>
+        <option value="en-GB">English</option>
         <option value="fi-FI">Finnish</option>
       </select>
       <button onClick={startVoiceRecognition} className="voice-command-button">🎙 Speak</button>
+      {/* <button onClick={stopVoiceRecognition} className="voice-command-button">🎙 Stop</button> */}
     </div>
   );
 }

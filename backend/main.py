@@ -1,90 +1,179 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import openai
+from openai import OpenAI
 import logging
 import os
 import re
 import spacy
-
+from langdetect import detect
 
 app = Flask(__name__)
-# Should replace the "origins" with {"origins": "https://gpt-assistant-coral.vercel.app/"}, but later
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s')
-
-nlp = spacy.load("en_core_web_sm") # for english
-# nlp = spacy.load("fi_core_web_sm") # for finnish
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY is not set in the environment variables")
 
 openai_api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(
+    # Defaults to os.environ.get("OPENAI_API_KEY")
+    
+)
+babbage = "ft:babbage-002:university-of-eastern-finland-uef:offtopichandling:94Td0sf4"
+first_fine_tuned_model = "ft:babbage-002:university-of-eastern-finland-uef::94T6mkoq"
+fine_tuned_model = "ft:babbage-002:university-of-eastern-finland-uef:offtopichandling:94Td0sf4"
+fine_tuned_gpt_35_turbo = "ft:gpt-3.5-turbo-0125:university-of-eastern-finland-uef::94nV0t60"
+print("The Fine-tuned model is called:" + fine_tuned_model)
 
 # Keyword/phrases patterns
-OUT_OF_SCOPE_PATTERNS = [
+OUT_OF_SCOPE_PATTERNS_EN = [
     r"\bpython code\b",  
     r"\bprogramming\b",  
-    r"\bvideo games\b",  
+    r"\bvideo games\b",     
     r"\bpolitics\b", 
     r"\barts\b",  
     r"\bmovies\b",  
     r"\btelevision\b",  
     r"\bstock market\b",  
-    r"\btravel advice\b",  
+    r"\btravel advice\b",   
+    r"\bcreate a (.*\b)?program\b",
+    r"\bdevelop a (.*\b)?application\b",
+    r"\bcode in [a-zA-Z]+\b",  # matches "code in Python", "code in Java", etc.
     # More out of scope patterns here
 ]
+OUT_OF_SCOPE_PATTERNS_FI = [
+    r"\bpython ohjelmointi\b",  
+    r"\bpython koodaus\b",  
+]
 
-def is_message_out_of_scope(message):
-    message_lower = message.lower()  # Convert message to lowercase to ensure case-insensitive matching
-    return any(re.search(pattern, message_lower) for pattern in OUT_OF_SCOPE_PATTERNS)
+def detect_language(text):
+    try:
+        return detect(text)
+    except Exception as e:
+        logging.error(f"Error detecting language: {e}")
+        return None
+    
+    
+def is_message_out_of_scope(message, language):
+    """
+    Check if the message is out of scope based on predefined patterns
+    for English and Finnish languages, ensuring case-insensitive matching.
+    """
+    message_lower = message.lower()  # Normalize case for case-insensitive comparison
 
-def is_message_related_to_bithabit(message):
+    if language == 'en':
+        patterns = OUT_OF_SCOPE_PATTERNS_EN
+    elif language == 'fi':
+        patterns = OUT_OF_SCOPE_PATTERNS_FI
+    else:
+        return False  # If language is unsupported, default to not out of scope
+
+    for pattern in patterns:
+        if re.search(pattern, message_lower, re.IGNORECASE):
+            return True
+    return False
+
+
+def is_message_related_to_bithabit(message, language):
     """
     Here we use NLP to determine if the message is related to health and lifestyle.
-    This should be better than regex patterns
     """
+    if language == 'fi':
+        nlp = spacy.load("fi_core_news_sm")
+        bithabit_related_keywords = ['urheilu', 'ruokavalio', 'uni', 'stressi', 'liikunta', 'treeni', 'ravinto', 'tavat', 'elämäntavat', 'mieliala']
+    elif language == 'en':
+        nlp = spacy.load("en_core_web_sm")
+        bithabit_related_keywords = ['exercise', 'diet', 'sleep', 'stress', 'sports', 'training', 'nutrition', 'habits', 'healthy habits', 'mood']
+    else:
+        return False  # Unsupported language
+    
     doc = nlp(message)
     for token in doc:
         if token.pos_ in ['NOUN', 'VERB']:
-            if token.lemma_ in ['exercise', 'diet', 'sleep', 'stress']:
+            if token.lemma_ in bithabit_related_keywords:
                 return True
     return False
+
+def general_format_response(response_text):
+    # Format numbered lists: Add a line break before each number
+    formatted_text = re.sub(r"(\d+\.)", r"\n\n\1", response_text)
+
+    # Ensure there's no excessive newline at the start and trim any whitespace at the end
+    formatted_text = formatted_text.lstrip().rstrip()
+
+    # Optional: Identify and bold specific keywords for emphasis
+    # This example simply demonstrates how you could bold the word "Important"
+    keywords_to_bold = ["Important"]
+    for keyword in keywords_to_bold:
+        formatted_text = re.sub(f"({keyword})", r"**\1**", formatted_text, flags=re.IGNORECASE)
+
+    return formatted_text
+
+# Example usage with a generic text response
+# raw_ai_response = "Here are some tips to improve your sleep: 1. Keep a consistent sleep schedule. 2. Create a bedtime ritual to wind down. 3. Make your bedroom comfortable for sleeping. Important: Avoid screens before bed."
+
+# formatted_ai_response = general_format_response(raw_ai_response)
+# print(formatted_ai_response)
 
 @app.route('/message', methods=['POST'])
 def handle_message():
     user_message = request.json.get('message')
+    
     if not user_message:
         logging.error('No message provided in request')
         return jsonify({"error": "No message provided"}), 400
 
+    language = detect_language(user_message)
+
     try:
         logging.debug('Received user message: %s', user_message)
-
         # If user message is "out of scope"
-        if is_message_out_of_scope(user_message) or not is_message_related_to_bithabit(user_message):
-            # Predefined response to redirect the conversation back to habits and health
-            redirect_message = "I'm here to help you with your health and habit goals. Let's focus on that instead!"
-            return jsonify({"reply": redirect_message})
+        # if is_message_out_of_scope(user_message, language):
+        #     # Customized response to smoothly redirect the conversation 
+        #     redirect_message = "I'm here to help you with your health and habit goals. Let's focus on that instead!"
+        #     formatted_redirect_message = general_format_response(redirect_message)
+        #     return jsonify({"reply": formatted_redirect_message})
         
-        # If the message is not out of scope, proceed with your existing logic
+        # elif not is_message_related_to_bithabit(user_message, language):
+        #     # Handle unrelated messages
+        #     redirect_message = "Let's try to keep our discussion focused on your health and wellness."
+        #     formatted_redirect_message = general_format_response(redirect_message)
+        #     return jsonify({"reply": formatted_redirect_message})
+
       
         #System Message:
         system_message = "I am BitHabit, a virtual assistant created by WellPro to help you develop and maintain healthy habits. I am here to provide guidance on fitness, nutrition, and overall well-being."
-
-        #Chat conversation
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        
+        # this is for gpt-3.5-turbo based models
+        completion = client.chat.completions.create(
+            
+            model=fine_tuned_gpt_35_turbo,
             messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message}
-            ]
+                 {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message}]
         )
-     
+
+        # This is for babbage-002 based models
+        # Constructing a prompt that combines the system and user message
+        # prompt = f"User: {user_message}\nAssistant:"
+        # # Generate a completion using the fine-tuned model
+        # completion = client.completions.create(
+        #     model=babbage,
+        #     prompt=prompt,
+        #     max_tokens=150,  # Adjust based on the desired length of the response
+        #     temperature=0.7,  # Adjust for creativity. Lower values make responses more deterministic.
+        #     top_p=1.0,
+        #     frequency_penalty=0.0,
+        #     presence_penalty=0.0,
+        #     stop=["\n", "User:", "Assistant:"]  # Define stop sequences if needed
+        # )
+
+        
         #Tailored responses :
         ai_responses = [
-            {"role": "assistant", "content": "Hello! I am BitHabit's virtual assistant. How can I assist you today?"},
+            {"role": "assistant", "content": "Hello! I am BitHabit's virtual assistant How can I assist you today?"},
             {"role": "assistant", "content": "I am here to provide guidance on fitness, nutrition, and overall well-being."},
             {"role": "assistant", "content": "Feel free to ask any questions or seek advice."},
             {"role": "assistant", "content": "BitHabit, created by WellPro, is committed to helping you lead a healthier lifestyle."},
@@ -101,7 +190,16 @@ def handle_message():
             {"role": "assistant", "content": "It's essential to prioritize your health. If you have medical or psychological inquiries, please consult qualified professionals who can offer expert guidance."},
         ]
 
-        ai_message = response.choises[0].message['content'] if response.choices else "Sorry, I didn't quite catch that."
+        # ai_message = chat_completion['choices'][0]['message']['content']
+
+        # this is for babbage-002 based models
+        #ai_message = completion.choices[0].text.strip()
+
+        #this if for gpt-3.5-turbo
+        ai_message = completion.choices[0].message.content.strip()
+        # raw_ai_response = completion.choices[0].message.content.strip() if completion.choices else "Sorry, I didn't quite catch that."
+        # formatted_ai_response = general_format_response(raw_ai_response)
+
 
         # Customize responses based on user messages
         if "What can you do?" in user_message:
@@ -110,6 +208,8 @@ def handle_message():
             ai_message = "I respect your privacy and do not access personal data without consent."
         elif "How do you handle my data?" in user_message:
             ai_message = "Your data is handled with strict privacy and security measures."
+        elif "Can you produce some Python code for me?" in user_message:
+            ai_message = "I'm sorry, I can't help with that. My expertise lies in health and wellness advice."
         elif "Can you help with diet plans?" in user_message:
             ai_message = "I can suggest healthy eating habits, but for personalized plans, consult a dietitian."
         elif "How accurate is your advice?" in user_message:
@@ -171,7 +271,7 @@ def handle_message():
         elif "What's the importance of a balanced diet?" in user_message:
             ai_message = "A balanced diet provides essential nutrients for overall health, energy, and disease prevention. It supports your body's functions."
 
-        
+
         logging.debug('AI response: %s', ai_message)
         return jsonify({"reply": ai_message})
     except Exception as e:
